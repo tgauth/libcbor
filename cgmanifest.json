@@ -1,0 +1,15 @@
+{
+    "Registrations":[
+        {
+            "Component": {
+                "Type": "other",
+                "Other": {
+                    "Name": "libcbor",
+                    "Version": "0.8.0",
+                    "DownloadUrl": "https://github.com/PJK/libcbor"
+                }
+            },
+            "DevelopmentDependency" : false
+        }
+    ]
+}
