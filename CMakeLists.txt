@@ -138,6 +138,7 @@ if (COVERAGE)
     endif()
 endif (COVERAGE)
 
+add_compile_options(/Qspectre) # add Spectre mitigation compiler option. (https://docs.microsoft.com/en-us/cpp/build/reference/qspectre?view=vs-2017)
 
 # We want to generate configuration.h from the template and make it so that it is accessible using the same
 # path during both library build and installed header use, without littering the source dir.
