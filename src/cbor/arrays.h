@@ -20,6 +20,7 @@ extern "C" {
  * @param item[borrow] An array
  * @return The number of members
  */
+_CBOR_NODISCARD
 CBOR_EXPORT size_t cbor_array_size(const cbor_item_t* item);
 
 /** Get the size of the allocated storage
@@ -27,6 +28,7 @@ CBOR_EXPORT size_t cbor_array_size(const cbor_item_t* item);
  * @param item[borrow] An array
  * @return The size of the allocated storage (number of items)
  */
+_CBOR_NODISCARD
 CBOR_EXPORT size_t cbor_array_allocated(const cbor_item_t* item);
 
 /** Get item by index
@@ -35,17 +37,20 @@ CBOR_EXPORT size_t cbor_array_allocated(const cbor_item_t* item);
  * @param index The index
  * @return **incref** The item, or `NULL` in case of boundary violation
  */
+_CBOR_NODISCARD
 CBOR_EXPORT cbor_item_t* cbor_array_get(const cbor_item_t* item, size_t index);
 
 /** Set item by index
  *
- * Creating arrays with holes is not possible
+ * If the index is out of bounds, the array is not modified and false is
+ * returned. Creating arrays with holes is not possible.
  *
  * @param item[borrow] An array
  * @param value[incref] The item to assign
  * @param index The index, first item is 0.
  * @return true on success, false on allocation failure.
  */
+_CBOR_NODISCARD
 CBOR_EXPORT bool cbor_array_set(cbor_item_t* item, size_t index,
                                 cbor_item_t* value);
 
@@ -58,6 +63,7 @@ CBOR_EXPORT bool cbor_array_set(cbor_item_t* item, size_t index,
  * @param index The index, first item is 0.
  * @return true on success, false on allocation failure.
  */
+_CBOR_NODISCARD
 CBOR_EXPORT bool cbor_array_replace(cbor_item_t* item, size_t index,
                                     cbor_item_t* value);
 
@@ -66,6 +72,7 @@ CBOR_EXPORT bool cbor_array_replace(cbor_item_t* item, size_t index,
  * @param item[borrow] An array
  * @return Is the array definite?
  */
+_CBOR_NODISCARD
 CBOR_EXPORT bool cbor_array_is_definite(const cbor_item_t* item);
 
 /** Is the array indefinite?
@@ -73,6 +80,7 @@ CBOR_EXPORT bool cbor_array_is_definite(const cbor_item_t* item);
  * @param item[borrow] An array
  * @return Is the array indefinite?
  */
+_CBOR_NODISCARD
 CBOR_EXPORT bool cbor_array_is_indefinite(const cbor_item_t* item);
 
 /** Get the array contents
@@ -83,6 +91,7 @@ CBOR_EXPORT bool cbor_array_is_indefinite(const cbor_item_t* item);
  * @param item[borrow] An array
  * @return #cbor_array_size items
  */
+_CBOR_NODISCARD
 CBOR_EXPORT cbor_item_t** cbor_array_handle(const cbor_item_t* item);
 
 /** Create new definite array
@@ -90,23 +99,26 @@ CBOR_EXPORT cbor_item_t** cbor_array_handle(const cbor_item_t* item);
  * @param size Number of slots to preallocate
  * @return **new** array or `NULL` upon malloc failure
  */
+_CBOR_NODISCARD
 CBOR_EXPORT cbor_item_t* cbor_new_definite_array(size_t size);
 
 /** Create new indefinite array
  *
  * @return **new** array or `NULL` upon malloc failure
  */
-CBOR_EXPORT cbor_item_t* cbor_new_indefinite_array();
+_CBOR_NODISCARD
+CBOR_EXPORT cbor_item_t* cbor_new_indefinite_array(void);
 
 /** Append to the end
  *
- * For indefinite items, storage may be realloacted. For definite items, only
+ * For indefinite items, storage may be reallocated. For definite items, only
  * the preallocated capacity is available.
  *
  * @param array[borrow] An array
  * @param pushee[incref] The item to push
  * @return true on success, false on failure
  */
+_CBOR_NODISCARD
 CBOR_EXPORT bool cbor_array_push(cbor_item_t* array, cbor_item_t* pushee);
 
 #ifdef __cplusplus
