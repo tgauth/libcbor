@@ -5,13 +5,9 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#include <setjmp.h>
-#include <stdarg.h>
-#include <stddef.h>
-
-#include <cmocka.h>
-
+#include "assertions.h"
 #include "cbor.h"
+#include "test_allocator.h"
 
 cbor_item_t *bs;
 struct cbor_load_result res;
@@ -142,7 +138,7 @@ static void test_empty_bs(void **_CBOR_UNUSED(_state)) {
   assert_non_null(bs);
   assert_true(cbor_typeof(bs) == CBOR_TYPE_BYTESTRING);
   assert_true(cbor_isa_bytestring(bs));
-  assert_int_equal(cbor_bytestring_length(bs), 0);
+  assert_size_equal(cbor_bytestring_length(bs), 0);
   assert_true(res.read == 1);
   cbor_decref(&bs);
   assert_null(bs);
@@ -272,7 +268,7 @@ unsigned char data11[] = {0x5F, 0x58, 0x01, 0xA1, 0x58, 0x01, 0xA2, 0xFF, 0xFF};
 static void test_two_indef(void **_CBOR_UNUSED(_state)) {
   bs = cbor_load(data11, 9, &res);
   assert_non_null(bs);
-  assert_int_equal(1, cbor_refcount(bs));
+  assert_size_equal(1, cbor_refcount(bs));
   assert_true(cbor_typeof(bs) == CBOR_TYPE_BYTESTRING);
   assert_true(cbor_isa_bytestring(bs));
   assert_true(cbor_bytestring_length(bs) == 0);
@@ -309,19 +305,77 @@ static void test_inline_creation(void **_CBOR_UNUSED(_state)) {
   cbor_decref(&bs);
 }
 
+static void test_add_chunk_reallocation_overflow(void **_CBOR_UNUSED(_state)) {
+  bs = cbor_new_indefinite_bytestring();
+  cbor_item_t *chunk = cbor_build_bytestring((cbor_data) "Hello!", 6);
+  struct cbor_indefinite_string_data *metadata =
+      (struct cbor_indefinite_string_data *)bs->data;
+  // Pretend we already have many chunks allocated
+  metadata->chunk_count = SIZE_MAX;
+  metadata->chunk_capacity = SIZE_MAX;
+
+  assert_false(cbor_bytestring_add_chunk(bs, chunk));
+  assert_size_equal(cbor_refcount(chunk), 1);
+
+  metadata->chunk_count = 0;
+  metadata->chunk_capacity = 0;
+  cbor_decref(&chunk);
+  cbor_decref(&bs);
+}
+
+static void test_bytestring_creation(void **_CBOR_UNUSED(_state)) {
+  WITH_FAILING_MALLOC({ assert_null(cbor_new_definite_bytestring()); });
+
+  WITH_FAILING_MALLOC({ assert_null(cbor_new_indefinite_bytestring()); });
+  WITH_MOCK_MALLOC({ assert_null(cbor_new_indefinite_bytestring()); }, 2,
+                   MALLOC, MALLOC_FAIL);
+
+  unsigned char bytes[] = {0, 0, 0xFF, 0xAB};
+
+  WITH_FAILING_MALLOC({ assert_null(cbor_build_bytestring(bytes, 4)); });
+  WITH_MOCK_MALLOC({ assert_null(cbor_build_bytestring(bytes, 4)); }, 2, MALLOC,
+                   MALLOC_FAIL);
+}
+
+static void test_bytestring_add_chunk(void **_CBOR_UNUSED(_state)) {
+  unsigned char bytes[] = {0, 0, 0xFF, 0xAB};
+  WITH_MOCK_MALLOC(
+      {
+        cbor_item_t *bytestring = cbor_new_indefinite_bytestring();
+        cbor_item_t *chunk = cbor_build_bytestring(bytes, 4);
+
+        assert_false(cbor_bytestring_add_chunk(bytestring, chunk));
+
+        assert_size_equal(cbor_bytestring_chunk_count(bytestring), 0);
+        assert_size_equal(
+            ((struct cbor_indefinite_string_data *)bytestring->data)
+                ->chunk_capacity,
+            0);
+
+        cbor_decref(&chunk);
+        cbor_decref(&bytestring);
+      },
+      5, MALLOC, MALLOC, MALLOC, MALLOC, REALLOC_FAIL);
+}
+
 int main(void) {
-  const struct CMUnitTest tests[] = {cmocka_unit_test(test_empty_bs),
-                                     cmocka_unit_test(test_embedded_bs),
-                                     cmocka_unit_test(test_notenough_data),
-                                     cmocka_unit_test(test_short_bs1),
-                                     cmocka_unit_test(test_short_bs2),
-                                     cmocka_unit_test(test_half_bs),
-                                     cmocka_unit_test(test_int_bs),
-                                     cmocka_unit_test(test_long_bs),
-                                     cmocka_unit_test(test_zero_indef),
-                                     cmocka_unit_test(test_short_indef),
-                                     cmocka_unit_test(test_two_indef),
-                                     cmocka_unit_test(test_missing_indef),
-                                     cmocka_unit_test(test_inline_creation)};
+  const struct CMUnitTest tests[] = {
+      cmocka_unit_test(test_empty_bs),
+      cmocka_unit_test(test_embedded_bs),
+      cmocka_unit_test(test_notenough_data),
+      cmocka_unit_test(test_short_bs1),
+      cmocka_unit_test(test_short_bs2),
+      cmocka_unit_test(test_half_bs),
+      cmocka_unit_test(test_int_bs),
+      cmocka_unit_test(test_long_bs),
+      cmocka_unit_test(test_zero_indef),
+      cmocka_unit_test(test_short_indef),
+      cmocka_unit_test(test_two_indef),
+      cmocka_unit_test(test_missing_indef),
+      cmocka_unit_test(test_inline_creation),
+      cmocka_unit_test(test_add_chunk_reallocation_overflow),
+      cmocka_unit_test(test_bytestring_creation),
+      cmocka_unit_test(test_bytestring_add_chunk),
+  };
   return cmocka_run_group_tests(tests, NULL, NULL);
 }

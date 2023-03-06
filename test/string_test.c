@@ -5,14 +5,10 @@
  * it under the terms of the MIT license. See LICENSE for details.
  */
 
-#include <setjmp.h>
-#include <stdarg.h>
-#include <stddef.h>
-
-#include <cmocka.h>
-
 #include <string.h>
+#include "assertions.h"
 #include "cbor.h"
+#include "test_allocator.h"
 
 cbor_item_t *string;
 struct cbor_load_result res;
@@ -24,8 +20,8 @@ static void test_empty_string(void **_CBOR_UNUSED(_state)) {
   assert_non_null(string);
   assert_true(cbor_typeof(string) == CBOR_TYPE_STRING);
   assert_true(cbor_isa_string(string));
-  assert_int_equal(cbor_string_length(string), 0);
-  assert_int_equal(cbor_string_codepoint_count(string), 0);
+  assert_size_equal(cbor_string_length(string), 0);
+  assert_size_equal(cbor_string_codepoint_count(string), 0);
   assert_true(res.read == 1);
   cbor_decref(&string);
   assert_null(string);
@@ -40,8 +36,8 @@ static void test_short_string(void **_CBOR_UNUSED(_state)) {
   assert_non_null(string);
   assert_true(cbor_typeof(string) == CBOR_TYPE_STRING);
   assert_true(cbor_isa_string(string));
-  assert_int_equal(cbor_string_length(string), 12);
-  assert_int_equal(cbor_string_codepoint_count(string), 12);
+  assert_size_equal(cbor_string_length(string), 12);
+  assert_size_equal(cbor_string_codepoint_count(string), 12);
   assert_memory_equal(&"Hello world!", cbor_string_handle(string), 12);
   assert_true(res.read == 13);
   cbor_decref(&string);
@@ -58,8 +54,8 @@ static void test_short_multibyte_string(void **_CBOR_UNUSED(_state)) {
   assert_non_null(string);
   assert_true(cbor_typeof(string) == CBOR_TYPE_STRING);
   assert_true(cbor_isa_string(string));
-  assert_int_equal(cbor_string_length(string), 15);
-  assert_int_equal(cbor_string_codepoint_count(string), 12);
+  assert_size_equal(cbor_string_length(string), 15);
+  assert_size_equal(cbor_string_codepoint_count(string), 12);
   assert_memory_equal(&"Čaues ßvěte!", cbor_string_handle(string), 15);
   assert_true(res.read == 16);
   cbor_decref(&string);
@@ -87,8 +83,8 @@ static void test_int8_string(void **_CBOR_UNUSED(_state)) {
   assert_non_null(string);
   assert_true(cbor_typeof(string) == CBOR_TYPE_STRING);
   assert_true(cbor_isa_string(string));
-  assert_int_equal(cbor_string_length(string), 150);
-  assert_int_equal(cbor_string_codepoint_count(string), 150);
+  assert_size_equal(cbor_string_length(string), 150);
+  assert_size_equal(cbor_string_codepoint_count(string), 150);
   assert_memory_equal(
 		&"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec mi tellus, iaculis nec vestibulum quis, fermentum non felis. Maecenas ut justo posuere.",
 		cbor_string_handle(string),
@@ -121,8 +117,8 @@ static void test_int16_string(void **_CBOR_UNUSED(_state)) {
   assert_non_null(string);
   assert_true(cbor_typeof(string) == CBOR_TYPE_STRING);
   assert_true(cbor_isa_string(string));
-  assert_int_equal(cbor_string_length(string), 150);
-  assert_int_equal(cbor_string_codepoint_count(string), 150);
+  assert_size_equal(cbor_string_length(string), 150);
+  assert_size_equal(cbor_string_codepoint_count(string), 150);
   assert_memory_equal(
 		&"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec mi tellus, iaculis nec vestibulum quis, fermentum non felis. Maecenas ut justo posuere.",
 		cbor_string_handle(string),
@@ -154,8 +150,8 @@ static void test_int32_string(void **_CBOR_UNUSED(_state)) {
   assert_non_null(string);
   assert_true(cbor_typeof(string) == CBOR_TYPE_STRING);
   assert_true(cbor_isa_string(string));
-  assert_int_equal(cbor_string_length(string), 150);
-  assert_int_equal(cbor_string_codepoint_count(string), 150);
+  assert_size_equal(cbor_string_length(string), 150);
+  assert_size_equal(cbor_string_codepoint_count(string), 150);
   assert_memory_equal(
 		&"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec mi tellus, iaculis nec vestibulum quis, fermentum non felis. Maecenas ut justo posuere.",
 		cbor_string_handle(string),
@@ -188,8 +184,8 @@ static void test_int64_string(void **_CBOR_UNUSED(_state)) {
   assert_non_null(string);
   assert_true(cbor_typeof(string) == CBOR_TYPE_STRING);
   assert_true(cbor_isa_string(string));
-  assert_int_equal(cbor_string_length(string), 150);
-  assert_int_equal(cbor_string_codepoint_count(string), 150);
+  assert_size_equal(cbor_string_length(string), 150);
+  assert_size_equal(cbor_string_codepoint_count(string), 150);
   assert_memory_equal(
 		&"Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec mi tellus, iaculis nec vestibulum quis, fermentum non felis. Maecenas ut justo posuere.",
 		cbor_string_handle(string),
@@ -227,6 +223,58 @@ static void test_inline_creation(void **_CBOR_UNUSED(_state)) {
   cbor_decref(&string);
 }
 
+static void test_string_creation(void **_CBOR_UNUSED(_state)) {
+  WITH_FAILING_MALLOC({ assert_null(cbor_new_definite_string()); });
+
+  WITH_FAILING_MALLOC({ assert_null(cbor_new_indefinite_string()); });
+  WITH_MOCK_MALLOC({ assert_null(cbor_new_indefinite_string()); }, 2, MALLOC,
+                   MALLOC_FAIL);
+
+  WITH_FAILING_MALLOC({ assert_null(cbor_build_string("Test")); });
+  WITH_MOCK_MALLOC({ assert_null(cbor_build_string("Test")); }, 2, MALLOC,
+                   MALLOC_FAIL);
+
+  WITH_FAILING_MALLOC({ assert_null(cbor_build_stringn("Test", 4)); });
+  WITH_MOCK_MALLOC({ assert_null(cbor_build_stringn("Test", 4)); }, 2, MALLOC,
+                   MALLOC_FAIL);
+}
+
+static void test_string_add_chunk(void **_CBOR_UNUSED(_state)) {
+  WITH_MOCK_MALLOC(
+      {
+        cbor_item_t *string = cbor_new_indefinite_string();
+        cbor_item_t *chunk = cbor_build_string("Hello!");
+
+        assert_false(cbor_string_add_chunk(string, chunk));
+        assert_size_equal(cbor_string_chunk_count(string), 0);
+        assert_size_equal(((struct cbor_indefinite_string_data *)string->data)
+                              ->chunk_capacity,
+                          0);
+
+        cbor_decref(&chunk);
+        cbor_decref(&string);
+      },
+      5, MALLOC, MALLOC, MALLOC, MALLOC, REALLOC_FAIL);
+}
+
+static void test_add_chunk_reallocation_overflow(void **_CBOR_UNUSED(_state)) {
+  string = cbor_new_indefinite_string();
+  cbor_item_t *chunk = cbor_build_string("Hello!");
+  struct cbor_indefinite_string_data *metadata =
+      (struct cbor_indefinite_string_data *)string->data;
+  // Pretend we already have many chunks allocated
+  metadata->chunk_count = SIZE_MAX;
+  metadata->chunk_capacity = SIZE_MAX;
+
+  assert_false(cbor_string_add_chunk(string, chunk));
+  assert_size_equal(cbor_refcount(chunk), 1);
+
+  metadata->chunk_count = 0;
+  metadata->chunk_capacity = 0;
+  cbor_decref(&chunk);
+  cbor_decref(&string);
+}
+
 int main(void) {
   const struct CMUnitTest tests[] = {
       cmocka_unit_test(test_empty_string),
@@ -237,6 +285,10 @@ int main(void) {
       cmocka_unit_test(test_int32_string),
       cmocka_unit_test(test_int64_string),
       cmocka_unit_test(test_short_indef_string),
-      cmocka_unit_test(test_inline_creation)};
+      cmocka_unit_test(test_inline_creation),
+      cmocka_unit_test(test_string_creation),
+      cmocka_unit_test(test_string_add_chunk),
+      cmocka_unit_test(test_add_chunk_reallocation_overflow),
+  };
   return cmocka_run_group_tests(tests, NULL, NULL);
 }
