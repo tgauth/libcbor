@@ -5,7 +5,7 @@
                 "Type": "other",
                 "Other": {
                     "Name": "libcbor",
-                    "Version": "0.8.0",
+                    "Version": "0.10.1",
                     "DownloadUrl": "https://github.com/PJK/libcbor"
                 }
             },
